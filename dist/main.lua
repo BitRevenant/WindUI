@@ -4,7 +4,7 @@
     | |/ |/ / / _ \/ _  / /_/ // /  
     |__/|__/_/_//_/\_,_/\____/___/
     
-    v1.6.65  |  2026-06-29  |  Roblox UI Library for scripts
+    v1.6.65  |  2026-06-30  |  Roblox UI Library for scripts
     
     To view the source code, see the `src/` folder on the official GitHub repository.
     
@@ -553,6 +553,12 @@ Slider="Primary",
 SliderThumb="White",
 SliderIconFrom="SliderIcon",
 SliderIconTo="SliderIcon",
+
+ProgressBar="Primary",
+ProgressBarTrack="Text",
+ProgressBarTrackTransparency=0.9,
+ProgressBarText="Text",
+ProgressBarRing="ProgressBar",
 
 Tooltip=Color3.fromHex"4C4C4C",
 TooltipText="White",
@@ -7580,6 +7586,377 @@ end
 
 return ah end function a.J()
 
+local aa=a.load'd'
+local ac=aa.New
+local ad=aa.Tween
+
+local ae={}
+
+local function ToFiniteNumber(af)
+local ag=tonumber(af)
+if ag==nil or ag~=ag or math.abs(ag)==math.huge then
+return nil
+end
+
+return ag
+end
+
+local function FormatNumber(af)
+if af%1==0 then
+return tostring(af)
+end
+
+return tostring(tonumber(string.format("%.2f",af)))
+end
+
+function ae.New(af,ag)
+local ah=typeof(ag.Type)=="string"and string.lower(ag.Type)=="ring"and"Ring"or"Bar"
+local ai=typeof(ag.Value)=="table"and ag.Value or{}
+local aj=ToFiniteNumber(ai.Min)or ToFiniteNumber(ag.Min)or 0
+local ak=ToFiniteNumber(ai.Max)or ToFiniteNumber(ag.Max)or 100
+
+if aj>ak then
+aj,ak=ak,aj
+end
+
+local al=typeof(ag.Value)=="number"and ag.Value
+or ToFiniteNumber(ai.Default)
+or ToFiniteNumber(ag.Default)
+or aj
+al=ToFiniteNumber(al)or aj
+
+local am=ag.Indeterminate
+if am==nil then
+am=ah=="Ring"
+end
+
+local an=ag.ShowValue
+if an==nil then
+an=not am
+end
+
+local ao=math.max(ToFiniteNumber(ag.RingSize)or 24,1)
+local ap=math.max(ToFiniteNumber(ag.ValueWidth)or 44,0)
+local aq=ah=="Ring"and ao+(an and ap+8 or 0)or 160
+
+local ar={
+__type="ProgressBar",
+Title=ag.Title or"Progress",
+Desc=ag.Desc or nil,
+Type=ah,
+Value={
+Min=aj,
+Max=ak,
+Default=math.clamp(al,aj,ak),
+},
+ShowValue=an,
+DisplayMode=ag.DisplayMode or"Percent",
+Format=ag.Format,
+Animate=ag.Animate~=false,
+AnimationDuration=math.max(ToFiniteNumber(ag.AnimationDuration)or 0.15,0),
+Indeterminate=am==true,
+IndeterminateText=ag.IndeterminateText or"",
+Speed=math.max(ToFiniteNumber(ag.Speed)or 1,0.01),
+RingSize=ao,
+RingThickness=math.max(ToFiniteNumber(ag.RingThickness)or 3,1),
+UIElements={},
+
+Width=math.max(ToFiniteNumber(ag.Width)or aq,0),
+ValueWidth=ap,
+}
+
+local function GetRatio(as)
+if ar.Value.Max==ar.Value.Min then
+return as>=ar.Value.Max and 1 or 0
+end
+
+return math.clamp(
+(as-ar.Value.Min)/(ar.Value.Max-ar.Value.Min),
+0,
+1
+)
+end
+
+local function GetValueText(as,at)
+if ar.Indeterminate then
+return tostring(ar.IndeterminateText)
+end
+
+local au=at*100
+
+if typeof(ar.Format)=="function"then
+local av,aw=pcall(
+ar.Format,
+as,
+au,
+ar.Value.Min,
+ar.Value.Max
+)
+
+if av and aw~=nil then
+return tostring(aw)
+end
+end
+
+if ar.DisplayMode=="Value"then
+return FormatNumber(as)
+elseif ar.DisplayMode=="Fraction"then
+return FormatNumber(as).."/"..FormatNumber(ar.Value.Max)
+end
+
+return tostring(math.floor(au+0.5)).."%"
+end
+
+local function GetRingTransparency(as)
+if as<=0 then
+return NumberSequence.new(1)
+elseif as>=1 then
+return NumberSequence.new(0)
+end
+
+local at=math.min(as+0.001,1)
+local au={
+NumberSequenceKeypoint.new(0,0),
+NumberSequenceKeypoint.new(as,0),
+NumberSequenceKeypoint.new(at,1),
+}
+
+if at<1 then
+table.insert(au,NumberSequenceKeypoint.new(1,1))
+end
+
+return NumberSequence.new(au)
+end
+
+ar.ProgressBarFrame=a.load'C'{
+Title=ar.Title,
+Desc=ar.Desc,
+Parent=ag.Parent,
+TextOffset=ar.Width,
+Hover=false,
+Tab=ag.Tab,
+Index=ag.Index,
+Window=ag.Window,
+ElementTable=ar,
+ParentConfig=ag,
+Tags=ag.Tags,
+}
+
+local as
+
+if ar.Type=="Bar"then
+ar.UIElements.Fill=aa.NewRoundFrame(99,"Squircle",{
+Name="Fill",
+Size=ar.Indeterminate
+and UDim2.new(0.3,0,1,0)
+or UDim2.new(GetRatio(ar.Value.Default),0,1,0),
+Position=ar.Indeterminate and UDim2.new(-0.3,0,0,0)or UDim2.new(0,0,0,0),
+ThemeTag={
+ImageColor3="ProgressBar",
+},
+})
+
+ar.UIElements.Bar=aa.NewRoundFrame(99,"Squircle",{
+Name="Bar",
+Size=UDim2.new(1,ar.ShowValue and-(ar.ValueWidth+8)or 0,0,6),
+ClipsDescendants=true,
+ImageTransparency=0.9,
+ThemeTag={
+ImageColor3="ProgressBarTrack",
+ImageTransparency="ProgressBarTrackTransparency",
+},
+},{
+ar.UIElements.Fill,
+})
+
+as=ar.UIElements.Bar
+else
+ar.UIElements.RingGradient=ac("UIGradient",{
+Rotation=ar.Indeterminate and 0 or-90,
+Transparency=ar.Indeterminate
+and NumberSequence.new{
+NumberSequenceKeypoint.new(0,0),
+NumberSequenceKeypoint.new(0.6,0),
+NumberSequenceKeypoint.new(0.85,1),
+NumberSequenceKeypoint.new(1,1),
+}
+or GetRingTransparency(GetRatio(ar.Value.Default)),
+})
+
+ar.UIElements.Ring=ac("Frame",{
+Name="Ring",
+Size=UDim2.fromOffset(ar.RingSize,ar.RingSize),
+BackgroundTransparency=1,
+},{
+ac("UICorner",{
+CornerRadius=UDim.new(1,0),
+}),
+ac("UIStroke",{
+Thickness=ar.RingThickness,
+ThemeTag={
+Color="ProgressBarRing",
+},
+},{
+ar.UIElements.RingGradient,
+}),
+})
+
+as=ar.UIElements.Ring
+end
+
+ar.UIElements.Value=ac("TextLabel",{
+Name="Value",
+Size=UDim2.new(0,ar.ValueWidth,0,20),
+BackgroundTransparency=1,
+FontFace=Font.new(aa.Font,Enum.FontWeight.Medium),
+Text=GetValueText(ar.Value.Default,GetRatio(ar.Value.Default)),
+TextSize=14,
+TextTransparency=0.25,
+TextTruncate="AtEnd",
+TextXAlignment="Right",
+Visible=ar.ShowValue,
+ThemeTag={
+TextColor3="ProgressBarText",
+},
+})
+
+ar.UIElements.Container=ac("Frame",{
+Name="ProgressBarContainer",
+Size=UDim2.new(0,ar.Width,0,36),
+Position=UDim2.new(1,0,ag.Window.NewElements and 0 or 0.5,0),
+AnchorPoint=Vector2.new(1,ag.Window.NewElements and 0 or 0.5),
+BackgroundTransparency=1,
+Parent=ar.ProgressBarFrame.UIElements.Main,
+},{
+ac("UIListLayout",{
+Padding=UDim.new(0,8),
+FillDirection="Horizontal",
+HorizontalAlignment="Right",
+VerticalAlignment="Center",
+}),
+as,
+ar.UIElements.Value,
+})
+
+local at
+if ar.Indeterminate then
+if ar.Type=="Bar"then
+at=ad(
+ar.UIElements.Fill,
+1/ar.Speed,
+{Position=UDim2.new(1,0,0,0)},
+Enum.EasingStyle.Linear,
+Enum.EasingDirection.InOut,-1
+
+)
+else
+at=ad(
+ar.UIElements.RingGradient,
+1/ar.Speed,
+{Rotation=360},
+Enum.EasingStyle.Linear,
+Enum.EasingDirection.InOut,-1
+
+)
+end
+
+aa.AddSignal(as.Destroying,function()
+at:Cancel()
+end)
+at:Play()
+end
+
+local function Update(au,av)
+local aw=ToFiniteNumber(au)
+if aw==nil then
+return ar.Value.Default
+end
+
+aw=math.clamp(aw,ar.Value.Min,ar.Value.Max)
+ar.Value.Default=aw
+
+local ax=GetRatio(aw)
+local ay=UDim2.new(ax,0,1,0)
+
+if ar.UIElements.Fill and not ar.Indeterminate then
+if av or not ar.Animate or ar.AnimationDuration<=0 then
+ar.UIElements.Fill.Size=ay
+else
+ad(
+ar.UIElements.Fill,
+ar.AnimationDuration,
+{Size=ay},
+Enum.EasingStyle.Quint,
+Enum.EasingDirection.Out
+):Play()
+end
+elseif ar.UIElements.RingGradient and not ar.Indeterminate then
+ar.UIElements.RingGradient.Transparency=GetRingTransparency(ax)
+end
+
+ar.UIElements.Value.Text=GetValueText(aw,ax)
+
+return aw
+end
+
+function ar.Set(au,av)
+return Update(av,false)
+end
+
+function ar.Get(au)
+return ar.Value.Default
+end
+
+function ar.GetPercentage(au)
+return GetRatio(ar.Value.Default)*100
+end
+
+function ar.SetRange(au,av,aw)
+av=ToFiniteNumber(av)
+aw=ToFiniteNumber(aw)
+
+if av==nil or aw==nil then
+return ar.Value.Min,ar.Value.Max
+end
+
+if av>aw then
+av,aw=aw,av
+end
+
+ar.Value.Min=av
+ar.Value.Max=aw
+Update(ar.Value.Default,false)
+
+return av,aw
+end
+
+function ar.SetMin(au,av)
+av=ToFiniteNumber(av)
+if av==nil then
+return ar.Value.Min
+end
+
+ar:SetRange(av,math.max(av,ar.Value.Max))
+return ar.Value.Min
+end
+
+function ar.SetMax(au,av)
+av=ToFiniteNumber(av)
+if av==nil then
+return ar.Value.Max
+end
+
+ar:SetRange(math.min(ar.Value.Min,av),av)
+return ar.Value.Max
+end
+
+Update(ar.Value.Default,true)
+
+return ar.__type,ar
+end
+
+return ae end function a.K()
+
 local aa=(cloneref or clonereference or function(aa)
 return aa
 end)
@@ -7778,7 +8155,7 @@ end)
 return ak.__type,ak
 end
 
-return ag end function a.K()
+return ag end function a.L()
 
 local aa=a.load'd'local ac=
 aa.New local ad=
@@ -7888,7 +8265,7 @@ end
 return aj.__type,aj
 end
 
-return ae end function a.L()
+return ae end function a.M()
 
 local aa=a.load'd'
 local ae=aa.New
@@ -7916,7 +8293,7 @@ ai
 return"Divider",{__type="Divider",ElementFrame=aj}
 end
 
-return af end function a.M()
+return af end function a.N()
 local aa={}
 
 local ae=(cloneref or clonereference or function(ae)
@@ -8455,7 +8832,7 @@ end
 
 RecalculateCanvasSize()
 RecalculateListSize()
-else a.load'L'
+else a.load'M'
 :New{Parent=ap.UIElements.Menu.Frame.ScrollingFrame}
 end
 end
@@ -8585,7 +8962,7 @@ UpdatePosition
 return at
 end
 
-return aa end function a.N()
+return aa end function a.O()
 
 local aa=(cloneref or clonereference or function(aa)
 return aa
@@ -8601,7 +8978,7 @@ af.Tween
 
 local ai=a.load'w'.New local aj=a.load'n'
 .New
-local ak=a.load'M'.New local al=
+local ak=a.load'N'.New local al=
 
 workspace.CurrentCamera
 
@@ -8719,7 +9096,7 @@ end
 return ap.__type,ap
 end
 
-return am end function a.O()
+return am end function a.P()
 
 
 
@@ -8968,7 +9345,7 @@ end
 return table.concat(at)
 end
 
-return aa end function a.P()
+return aa end function a.Q()
 
 local aa={}
 
@@ -8976,7 +9353,7 @@ local af=a.load'd'
 local ag=af.New
 local ai=af.Tween
 
-local ak=a.load'O'
+local ak=a.load'P'
 
 function aa.New(al,am,an,ao,ap)
 local aq={
@@ -9207,13 +9584,13 @@ end
 return aq
 end
 
-return aa end function a.Q()
+return aa end function a.R()
 
 local aa=a.load'd'local af=
 aa.New
 
 
-local ag=a.load'P'
+local ag=a.load'Q'
 
 local ai={}
 
@@ -9309,7 +9686,7 @@ am.ElementFrame=ao.CodeFrame
 return am.__type,am
 end
 
-return ai end function a.R()
+return ai end function a.S()
 
 local aa=a.load'd'
 local af=aa.New local ag=
@@ -10184,7 +10561,7 @@ end)
 return aw.__type,aw
 end
 
-return as end function a.S()
+return as end function a.T()
 
 local aa=a.load'd'
 local af=aa.New
@@ -10563,7 +10940,7 @@ end)
 return an.__type,an
 end
 
-return ak end function a.T()
+return ak end function a.U()
 
 local aa=a.load'd'
 local af=aa.New
@@ -10580,7 +10957,7 @@ BackgroundTransparency=1,
 return"Space",{__type="Space",ElementFrame=am}
 end
 
-return ai end function a.U()
+return ai end function a.V()
 local aa=a.load'd'
 local af=aa.New
 
@@ -10649,7 +11026,7 @@ end
 return am.__type,am
 end
 
-return ai end function a.V()
+return ai end function a.W()
 local aa=a.load'd'
 local af=aa.New
 
@@ -10734,7 +11111,7 @@ al.Tab
 return am.__type,am
 end
 
-return ai end function a.W()
+return ai end function a.X()
 local aa=a.load'd'
 local af=aa.New
 
@@ -10834,7 +11211,7 @@ end
 return am.__type,am
 end
 
-return ai end function a.X()
+return ai end function a.Y()
 
 local aa=a.load'd'
 local af=aa.New
@@ -10921,7 +11298,7 @@ al.Tab
 return am.__type,am
 end
 
-return ai end function a.Y()
+return ai end function a.Z()
 local aa=(cloneref or clonereference or function(aa)
 return aa
 end)
@@ -11157,7 +11534,7 @@ ao.Main=at
 return ao.__type,ao
 end
 
-return al end function a.Z()
+return al end function a._()
 
 return{
 Elements={
@@ -11165,19 +11542,20 @@ Paragraph=a.load'D',
 Button=a.load'E',
 Toggle=a.load'H',
 Slider=a.load'I',
-Keybind=a.load'J',
-Input=a.load'K',
-Dropdown=a.load'N',
-Code=a.load'Q',
-Colorpicker=a.load'R',
-Section=a.load'S',
-Divider=a.load'L',
-Space=a.load'T',
-Image=a.load'U',
-Group=a.load'V',
-HStack=a.load'W',
-VStack=a.load'X',
-Viewport=a.load'Y',
+ProgressBar=a.load'J',
+Keybind=a.load'K',
+Input=a.load'L',
+Dropdown=a.load'O',
+Code=a.load'R',
+Colorpicker=a.load'S',
+Section=a.load'T',
+Divider=a.load'M',
+Space=a.load'U',
+Image=a.load'V',
+Group=a.load'W',
+HStack=a.load'X',
+VStack=a.load'Y',
+Viewport=a.load'Z',
 
 },
 Load=function(aa,af,ai,ak,al,am,an,ao,ap)
@@ -11306,7 +11684,7 @@ end
 end
 end
 end,
-}end function a._()
+}end function a.aa()
 
 local aa=(cloneref or clonereference or function(aa)
 return aa
@@ -11760,7 +12138,7 @@ end
 
 
 
-local aA=a.load'Z'
+local aA=a.load'_'
 
 aA.Load(
 ar,
@@ -11954,7 +12332,7 @@ ao.OnChangeFunc(aq)
 end
 end
 
-return ao end function a.aa()
+return ao end function a.ab()
 
 local aa={}
 
@@ -11963,7 +12341,7 @@ local af=a.load'd'
 local ai=af.New
 local ak=af.Tween
 
-local al=a.load'_'
+local al=a.load'aa'
 
 function aa.New(am,an,ao,ap,aq)
 local ar={
@@ -12132,7 +12510,7 @@ return ar
 end
 
 
-return aa end function a.ab()
+return aa end function a.ac()
 return{
 Tab="table-of-contents",
 Paragraph="type",
@@ -12144,7 +12522,7 @@ Input="text-cursor-input",
 Dropdown="chevrons-up-down",
 Code="terminal",
 Colorpicker="palette",
-}end function a.ac()
+}end function a.ad()
 local aa=(cloneref or clonereference or function(aa)
 return aa
 end)
@@ -12168,7 +12546,7 @@ Radius=22,
 Width=400,
 MaxHeight=380,
 
-Icons=a.load'ab',
+Icons=a.load'ac',
 }
 
 local aq=ak("TextBox",{
@@ -12683,7 +13061,7 @@ end)
 return ap
 end
 
-return af end function a.ad()
+return af end function a.ae()
 
 
 
@@ -14359,8 +14737,8 @@ if aw.OpenButton and typeof(aw.OpenButton)=="table"then
 aw:EditOpenButton(aw.OpenButton)
 end
 
-local C=a.load'_'
-local F=a.load'aa'
+local C=a.load'aa'
+local F=a.load'ab'
 local G=C.Init(aw,av.WindUI,av.WindUI.TooltipGui)
 G:OnChange(function(H)
 aw.CurrentTab=H
@@ -14817,7 +15195,7 @@ end)
 
 
 if not aw.HideSearchBar then
-local Q=a.load'ac'
+local Q=a.load'ad'
 local R=false
 
 
@@ -15213,7 +15591,7 @@ aa:SetTheme"Dark"
 aa:SetLanguage(as.Language)
 
 function aa.CreateWindow(az,aA)
-local aB=a.load'ad'
+local aB=a.load'ae'
 
 if not am:IsStudio()and writefile then
 if not isfolder"WindUI"then
