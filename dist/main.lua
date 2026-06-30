@@ -7635,11 +7635,10 @@ if an==nil then
 an=not am
 end
 
-local ao=math.max(ToFiniteNumber(ag.RingSize)or 24,1)
+local ao=math.max(ToFiniteNumber(ag.RingSize)or 18,1)
 local ap=math.max(ToFiniteNumber(ag.ValueWidth)or 44,0)
-local aq=ah=="Ring"and ao+(an and ap+8 or 0)or 160
 
-local ar={
+local aq={
 __type="ProgressBar",
 Title=ag.Title or"Progress",
 Desc=ag.Desc or nil,
@@ -7658,107 +7657,99 @@ Indeterminate=am==true,
 IndeterminateText=ag.IndeterminateText or"",
 Speed=math.max(ToFiniteNumber(ag.Speed)or 1,0.01),
 RingSize=ao,
-RingThickness=math.max(ToFiniteNumber(ag.RingThickness)or 3,1),
+RingThickness=math.max(ToFiniteNumber(ag.RingThickness)or 2,1),
+RingSegments=math.clamp(math.floor(ToFiniteNumber(ag.RingSegments)or 12),8,24),
 UIElements={},
 
-Width=math.max(ToFiniteNumber(ag.Width)or aq,0),
+Width=math.max(ToFiniteNumber(ag.Width)or 160,0),
 ValueWidth=ap,
 }
 
-local function GetRatio(as)
-if ar.Value.Max==ar.Value.Min then
-return as>=ar.Value.Max and 1 or 0
+local function GetRatio(ar)
+if aq.Value.Max==aq.Value.Min then
+return ar>=aq.Value.Max and 1 or 0
 end
 
 return math.clamp(
-(as-ar.Value.Min)/(ar.Value.Max-ar.Value.Min),
+(ar-aq.Value.Min)/(aq.Value.Max-aq.Value.Min),
 0,
 1
 )
 end
 
-local function GetValueText(as,at)
-if ar.Indeterminate then
-return tostring(ar.IndeterminateText)
+local function GetValueText(ar,as)
+if aq.Indeterminate then
+return tostring(aq.IndeterminateText)
 end
 
-local au=at*100
+local at=as*100
 
-if typeof(ar.Format)=="function"then
-local av,aw=pcall(
-ar.Format,
-as,
-au,
-ar.Value.Min,
-ar.Value.Max
+if typeof(aq.Format)=="function"then
+local au,av=pcall(
+aq.Format,
+ar,
+at,
+aq.Value.Min,
+aq.Value.Max
 )
 
-if av and aw~=nil then
-return tostring(aw)
+if au and av~=nil then
+return tostring(av)
 end
 end
 
-if ar.DisplayMode=="Value"then
-return FormatNumber(as)
-elseif ar.DisplayMode=="Fraction"then
-return FormatNumber(as).."/"..FormatNumber(ar.Value.Max)
+if aq.DisplayMode=="Value"then
+return FormatNumber(ar)
+elseif aq.DisplayMode=="Fraction"then
+return FormatNumber(ar).."/"..FormatNumber(aq.Value.Max)
 end
 
-return tostring(math.floor(au+0.5)).."%"
+return tostring(math.floor(at+0.5)).."%"
 end
 
-local function GetRingTransparency(as)
-if as<=0 then
-return NumberSequence.new(1)
-elseif as>=1 then
-return NumberSequence.new(0)
+local function UpdateRing(ar)
+local as=aq.UIElements.RingSegments
+if not as then
+return
 end
 
-local at=math.min(as+0.001,1)
-local au={
-NumberSequenceKeypoint.new(0,0),
-NumberSequenceKeypoint.new(as,0),
-NumberSequenceKeypoint.new(at,1),
-}
-
-if at<1 then
-table.insert(au,NumberSequenceKeypoint.new(1,1))
+local at=math.floor(ar*#as+0.5)
+for au,av in next,as do
+av.BackgroundTransparency=au<=at and 0 or 0.82
+end
 end
 
-return NumberSequence.new(au)
-end
-
-ar.ProgressBarFrame=a.load'C'{
-Title=ar.Title,
-Desc=ar.Desc,
+aq.ProgressBarFrame=a.load'C'{
+Title=aq.Title,
+Desc=aq.Desc,
 Parent=ag.Parent,
-TextOffset=ar.Width,
+TextOffset=aq.Width,
 Hover=false,
 Tab=ag.Tab,
 Index=ag.Index,
 Window=ag.Window,
-ElementTable=ar,
+ElementTable=aq,
 ParentConfig=ag,
 Tags=ag.Tags,
 }
 
-local as
+local ar
 
-if ar.Type=="Bar"then
-ar.UIElements.Fill=aa.NewRoundFrame(99,"Squircle",{
+if aq.Type=="Bar"then
+aq.UIElements.Fill=aa.NewRoundFrame(99,"Squircle",{
 Name="Fill",
-Size=ar.Indeterminate
+Size=aq.Indeterminate
 and UDim2.new(0.3,0,1,0)
-or UDim2.new(GetRatio(ar.Value.Default),0,1,0),
-Position=ar.Indeterminate and UDim2.new(-0.3,0,0,0)or UDim2.new(0,0,0,0),
+or UDim2.new(GetRatio(aq.Value.Default),0,1,0),
+Position=aq.Indeterminate and UDim2.new(-0.3,0,0,0)or UDim2.new(0,0,0,0),
 ThemeTag={
 ImageColor3="ProgressBar",
 },
 })
 
-ar.UIElements.Bar=aa.NewRoundFrame(99,"Squircle",{
+aq.UIElements.Bar=aa.NewRoundFrame(99,"Squircle",{
 Name="Bar",
-Size=UDim2.new(1,ar.ShowValue and-(ar.ValueWidth+8)or 0,0,6),
+Size=UDim2.new(1,aq.ShowValue and-(aq.ValueWidth+8)or 0,0,6),
 ClipsDescendants=true,
 ImageTransparency=0.9,
 ThemeTag={
@@ -7766,93 +7757,102 @@ ImageColor3="ProgressBarTrack",
 ImageTransparency="ProgressBarTrackTransparency",
 },
 },{
-ar.UIElements.Fill,
+aq.UIElements.Fill,
 })
 
-as=ar.UIElements.Bar
+ar=aq.UIElements.Bar
 else
-ar.UIElements.RingGradient=ac("UIGradient",{
-Rotation=ar.Indeterminate and 0 or-90,
-Transparency=ar.Indeterminate
-and NumberSequence.new{
-NumberSequenceKeypoint.new(0,0),
-NumberSequenceKeypoint.new(0.6,0),
-NumberSequenceKeypoint.new(0.85,1),
-NumberSequenceKeypoint.new(1,1),
-}
-or GetRingTransparency(GetRatio(ar.Value.Default)),
-})
+aq.UIElements.RingSegments={}
 
-ar.UIElements.Ring=ac("Frame",{
-Name="Ring",
-Size=UDim2.fromOffset(ar.RingSize,ar.RingSize),
-BackgroundTransparency=1,
+local as={}
+local at=math.max(aq.RingThickness*1.8,3)
+local au=math.max((aq.RingSize-at)/2,0)
+
+for av=1,aq.RingSegments do
+local aw=((av-1)/aq.RingSegments)*math.pi*2-math.pi/2
+local ax=ac("Frame",{
+Name="Segment"..av,
+Size=UDim2.fromOffset(aq.RingThickness,at),
+Position=UDim2.fromOffset(
+aq.RingSize/2+math.cos(aw)*au,
+aq.RingSize/2+math.sin(aw)*au
+),
+AnchorPoint=Vector2.new(0.5,0.5),
+Rotation=math.deg(aw)+90,
+BackgroundTransparency=aq.Indeterminate
+and 0.1+((av-1)/(aq.RingSegments-1))*0.8
+or 0.82,
+ThemeTag={
+BackgroundColor3="ProgressBarRing",
+},
 },{
 ac("UICorner",{
 CornerRadius=UDim.new(1,0),
 }),
-ac("UIStroke",{
-Thickness=ar.RingThickness,
-ThemeTag={
-Color="ProgressBarRing",
-},
-},{
-ar.UIElements.RingGradient,
-}),
 })
 
-as=ar.UIElements.Ring
+table.insert(aq.UIElements.RingSegments,ax)
+table.insert(as,ax)
 end
 
-ar.UIElements.Value=ac("TextLabel",{
+aq.UIElements.Ring=ac("Frame",{
+Name="Ring",
+Size=UDim2.fromOffset(aq.RingSize,aq.RingSize),
+BackgroundTransparency=1,
+},as)
+
+ar=aq.UIElements.Ring
+end
+
+aq.UIElements.Value=ac("TextLabel",{
 Name="Value",
-Size=UDim2.new(0,ar.ValueWidth,0,20),
+Size=UDim2.new(0,aq.ValueWidth,0,20),
 BackgroundTransparency=1,
 FontFace=Font.new(aa.Font,Enum.FontWeight.Medium),
-Text=GetValueText(ar.Value.Default,GetRatio(ar.Value.Default)),
+Text=GetValueText(aq.Value.Default,GetRatio(aq.Value.Default)),
 TextSize=14,
 TextTransparency=0.25,
 TextTruncate="AtEnd",
 TextXAlignment="Right",
-Visible=ar.ShowValue,
+Visible=aq.ShowValue,
 ThemeTag={
 TextColor3="ProgressBarText",
 },
 })
 
-ar.UIElements.Container=ac("Frame",{
+aq.UIElements.Container=ac("Frame",{
 Name="ProgressBarContainer",
-Size=UDim2.new(0,ar.Width,0,36),
+Size=UDim2.new(0,aq.Width,0,36),
 Position=UDim2.new(1,0,ag.Window.NewElements and 0 or 0.5,0),
 AnchorPoint=Vector2.new(1,ag.Window.NewElements and 0 or 0.5),
 BackgroundTransparency=1,
-Parent=ar.ProgressBarFrame.UIElements.Main,
+Parent=aq.ProgressBarFrame.UIElements.Main,
 },{
 ac("UIListLayout",{
 Padding=UDim.new(0,8),
 FillDirection="Horizontal",
-HorizontalAlignment="Right",
+HorizontalAlignment=aq.Type=="Ring"and not aq.ShowValue and"Center"or"Right",
 VerticalAlignment="Center",
 }),
-as,
-ar.UIElements.Value,
+ar,
+aq.UIElements.Value,
 })
 
-local at
-if ar.Indeterminate then
-if ar.Type=="Bar"then
-at=ad(
-ar.UIElements.Fill,
-1/ar.Speed,
+local as
+if aq.Indeterminate then
+if aq.Type=="Bar"then
+as=ad(
+aq.UIElements.Fill,
+1/aq.Speed,
 {Position=UDim2.new(1,0,0,0)},
 Enum.EasingStyle.Linear,
 Enum.EasingDirection.InOut,-1
 
 )
 else
-at=ad(
-ar.UIElements.RingGradient,
-1/ar.Speed,
+as=ad(
+aq.UIElements.Ring,
+1/aq.Speed,
 {Rotation=360},
 Enum.EasingStyle.Linear,
 Enum.EasingDirection.InOut,-1
@@ -7860,99 +7860,99 @@ Enum.EasingDirection.InOut,-1
 )
 end
 
-aa.AddSignal(as.Destroying,function()
-at:Cancel()
+aa.AddSignal(ar.Destroying,function()
+as:Cancel()
 end)
-at:Play()
+as:Play()
 end
 
-local function Update(au,av)
-local aw=ToFiniteNumber(au)
-if aw==nil then
-return ar.Value.Default
+local function Update(at,au)
+local av=ToFiniteNumber(at)
+if av==nil then
+return aq.Value.Default
 end
 
-aw=math.clamp(aw,ar.Value.Min,ar.Value.Max)
-ar.Value.Default=aw
+av=math.clamp(av,aq.Value.Min,aq.Value.Max)
+aq.Value.Default=av
 
-local ax=GetRatio(aw)
-local ay=UDim2.new(ax,0,1,0)
+local aw=GetRatio(av)
+local ax=UDim2.new(aw,0,1,0)
 
-if ar.UIElements.Fill and not ar.Indeterminate then
-if av or not ar.Animate or ar.AnimationDuration<=0 then
-ar.UIElements.Fill.Size=ay
+if aq.UIElements.Fill and not aq.Indeterminate then
+if au or not aq.Animate or aq.AnimationDuration<=0 then
+aq.UIElements.Fill.Size=ax
 else
 ad(
-ar.UIElements.Fill,
-ar.AnimationDuration,
-{Size=ay},
+aq.UIElements.Fill,
+aq.AnimationDuration,
+{Size=ax},
 Enum.EasingStyle.Quint,
 Enum.EasingDirection.Out
 ):Play()
 end
-elseif ar.UIElements.RingGradient and not ar.Indeterminate then
-ar.UIElements.RingGradient.Transparency=GetRingTransparency(ax)
+elseif aq.UIElements.RingSegments and not aq.Indeterminate then
+UpdateRing(aw)
 end
 
-ar.UIElements.Value.Text=GetValueText(aw,ax)
+aq.UIElements.Value.Text=GetValueText(av,aw)
 
-return aw
+return av
 end
 
-function ar.Set(au,av)
-return Update(av,false)
+function aq.Set(at,au)
+return Update(au,false)
 end
 
-function ar.Get(au)
-return ar.Value.Default
+function aq.Get(at)
+return aq.Value.Default
 end
 
-function ar.GetPercentage(au)
-return GetRatio(ar.Value.Default)*100
+function aq.GetPercentage(at)
+return GetRatio(aq.Value.Default)*100
 end
 
-function ar.SetRange(au,av,aw)
+function aq.SetRange(at,au,av)
+au=ToFiniteNumber(au)
 av=ToFiniteNumber(av)
-aw=ToFiniteNumber(aw)
 
-if av==nil or aw==nil then
-return ar.Value.Min,ar.Value.Max
+if au==nil or av==nil then
+return aq.Value.Min,aq.Value.Max
 end
 
-if av>aw then
-av,aw=aw,av
+if au>av then
+au,av=av,au
 end
 
-ar.Value.Min=av
-ar.Value.Max=aw
-Update(ar.Value.Default,false)
+aq.Value.Min=au
+aq.Value.Max=av
+Update(aq.Value.Default,false)
 
-return av,aw
+return au,av
 end
 
-function ar.SetMin(au,av)
-av=ToFiniteNumber(av)
-if av==nil then
-return ar.Value.Min
+function aq.SetMin(at,au)
+au=ToFiniteNumber(au)
+if au==nil then
+return aq.Value.Min
 end
 
-ar:SetRange(av,math.max(av,ar.Value.Max))
-return ar.Value.Min
+aq:SetRange(au,math.max(au,aq.Value.Max))
+return aq.Value.Min
 end
 
-function ar.SetMax(au,av)
-av=ToFiniteNumber(av)
-if av==nil then
-return ar.Value.Max
+function aq.SetMax(at,au)
+au=ToFiniteNumber(au)
+if au==nil then
+return aq.Value.Max
 end
 
-ar:SetRange(math.min(ar.Value.Min,av),av)
-return ar.Value.Max
+aq:SetRange(math.min(aq.Value.Min,au),au)
+return aq.Value.Max
 end
 
-Update(ar.Value.Default,true)
+Update(aq.Value.Default,true)
 
-return ar.__type,ar
+return aq.__type,aq
 end
 
 return ae end function a.K()
